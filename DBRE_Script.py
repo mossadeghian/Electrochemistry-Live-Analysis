@@ -25,6 +25,8 @@ def DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, ma
 	datestamp = lines[3].split('\t')[2]
 	timestamp = lines[4].split('\t')[2]
 	f.close()
+	#save voltage vs time in Excel file just in case
+	raw_data.to_excel(filename + '.xlsx')
 	#extract voltage and plateau length using threshold
 	raw_data = raw_data[raw_data.Time > charging_time]
 	raw_data = raw_data[raw_data.Time < max_time]
