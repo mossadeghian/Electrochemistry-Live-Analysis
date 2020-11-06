@@ -12,6 +12,7 @@ max_time = 150 #do not plot or evaluate past this number of seconds to reduce am
 threshold = 0.008 #default max value for slope of plateau
 filename = 'A_DBRE_#1' #will be updated throughout script
 num_measurements = 2 #expected number of files to go through
+min_plateau_length = 10 #minimum number of points needed to have a plateau
 printplots = True #whether or not you'd like to print each plot
 def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements):
 	global df
@@ -38,7 +39,7 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 		plt.suptitle('Discharge and first derivative for run #'+ experimentnumber)
 		top = plt.subplot(2,1,1)
 		plt.plot(raw_data.Time, raw_data.Voltage)
-		plt.axis([-10, max_time, -1.5, -0.8])
+		plt.axis([-10, max_time, -1.6, -0.8])
 		plt.ylabel('Voltage (V)')
 		#DERIVATIVE PLOT
 		bottom = plt.subplot(2,1,2)
@@ -59,7 +60,7 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 			reached_plateau = True #make sure that initial steepness is ignored
 			if plateau_start == 0:
 				plateau_start = count
-		if i > threshold and reached_plateau is True: #end loop
+		if i > threshold and reached_plateau is True and abs(count-plateau_start) > min_plateau_length: #end loop
 			break
 		count = count + 1
 	plateau_end = count
