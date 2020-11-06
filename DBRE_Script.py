@@ -16,13 +16,13 @@ num_measurements = 2 #expected number of files to go through
 min_plateau_length = 20 #minimum number of points needed to have a plateau
 printplots = True #whether or not you'd like to print each plot
 
-def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements):
-	global df
+def DBRE_analyzer(filename, threshold):
+	global df, cycle_time, reset_time, max_time, num_measurements, min_plateau_length, printplots
 	try: #to read the text file
 		raw_data = pd.read_csv(filename + '.DTA',sep = '\t',header = None, usecols = [2,3], skiprows = 64, names = ['Time','Voltage'])
 	except pd.io.common.EmptyDataError: #if file is empty, wait reset_time
 		time.sleep(reset_time)
-		DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements)
+		DBRE_analyzer(filename, threshold)
 
 	#extract date,time, charging time
 	experimentnumber = filename[8:]
@@ -114,10 +114,10 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 	time.sleep(cycle_time)
 	new_filename = filename[:8]
 	new_filename = new_filename + str(new_number)
-	DBRE_analyzer(new_filename, cycle_time, reset_time, max_time, threshold, num_measurements) #recursive loop until all files parsed
+	DBRE_analyzer(new_filename, threshold) #recursive loop until all files parsed
 
 # Now, create the dataframe that will store the readings. It will be written to an Excel file after each measurement.
 df = pd.DataFrame(columns = ['Date','Time','Potential','Uncertainty','Plateau_Length'])
 
 #run function
-DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements)
+DBRE_analyzer(filename, threshold)
