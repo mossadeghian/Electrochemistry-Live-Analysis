@@ -4,6 +4,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import time
 from datetime import datetime
+
 # The following inputs will need to be set based on the DBRE configuration #
 #charging_time = 3 #chronopotentiometry time in seconds
 cycle_time = 1 #amount of seconds between DBRE measurements. If you'd like to go through a bunch at once, set equal to 1.
@@ -14,6 +15,7 @@ filename = 'A_DBRE_#1' #will be updated throughout script
 num_measurements = 2 #expected number of files to go through
 min_plateau_length = 20 #minimum number of points needed to have a plateau
 printplots = True #whether or not you'd like to print each plot
+
 def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements):
 	global df
 	try: #to read the text file
@@ -21,7 +23,8 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 	except pd.io.common.EmptyDataError: #if file is empty, wait reset_time
 		time.sleep(reset_time)
 		DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements)
-	#extract date and time
+
+	#extract date,time, charging time
 	experimentnumber = filename[8:]
 	f = open(filename + '.DTA', 'r')
 	lines = f.readlines()
@@ -29,12 +32,15 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 	timestamp = lines[4].split('\t')[2]
 	charging_time = float(lines[11].split('\t')[2])
 	f.close()
+
 	#create derivative column
 	raw_data['Derivative'] = np.gradient(raw_data.Voltage,raw_data.Time)
 	raw_data['Concavity'] = np.gradient(raw_data.Derivative,raw_data.Time)
-	#filter times past the maximum time
+
+	#filter out times past the maximum time
 	raw_data = raw_data[raw_data.Time < max_time]
-	#save voltage vs time in Excel file, and produce plots
+
+	#save raw data in Excel file, and produce plots
 	if printplots:
 		plt.figure()
 		plt.suptitle('Discharge and first derivative for run #'+ experimentnumber)
@@ -57,7 +63,8 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 #		plt.xlabel('Time (s)')
 #		plt.ylabel('2nd Derivative')
 	raw_data.to_excel(filename + '.xlsx')
-	#extract voltage and plateau length using threshold
+
+	#extract voltage and plateau length using threshold on derivative
 	raw_data = raw_data[raw_data.Time > charging_time]
 	raw_data = raw_data.reset_index()
 	reached_plateau = False
@@ -72,6 +79,7 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 		if i > threshold and reached_plateau is True and abs(count-plateau_start) > min_plateau_length: #end loop
 			break
 	plateau_end = max([count,0])
+
 	#add plateau points to plots
 	if printplots:
 		top.plot(raw_data.Time[plateau_start],raw_data.Voltage[plateau_start],'or', markersize=6)
@@ -83,18 +91,22 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 		#save the plot
 		plt.savefig('plot#'+experimentnumber+'.png', dpi=300) # Save the figure
 		plt.close()
+
+	#filter raw data to only contain plateau
 	raw_data.drop(raw_data.tail(len(raw_data.index)-plateau_end).index, inplace = True)
 	raw_data.drop(raw_data.head(plateau_start).index, inplace = True)
-	#increase threshold if script didn't find plateau?
-#	if raw_data.empty:
-#		return DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements)
-	# ^ not sure if this will work ^
+
+	#calculate plateau length, average potential, anduncertainty
 	ones = 1+0*raw_data.Time
 	plateau = np.trapz(ones,x = raw_data.Time) #time of plateau length
 	voltage = np.trapz(raw_data.Voltage, x = raw_data.Time)/plateau #numerical integral to average voltage
 	uncertainty = (max(raw_data.Voltage) - min(raw_data.Voltage))/2 #estimate uncertainty as voltage window divided by 2
+
+	#add info to overall Excel file
 	df = df.append({'Date': datestamp,'Time': timestamp,'Potential': voltage,'Uncertainty': uncertainty, 'Plateau_Length': plateau},ignore_index = True) #add values to overall dataframe
 	df.to_excel('DBRE.xlsx')
+
+	#prepare to either read next file or stop
 	new_number = int(filename[8:]) + 1
 	if new_number > num_measurements:
 		print(df)
@@ -103,7 +115,9 @@ def DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_mea
 	new_filename = filename[:8]
 	new_filename = new_filename + str(new_number)
 	DBRE_analyzer(new_filename, cycle_time, reset_time, max_time, threshold, num_measurements) #recursive loop until all files parsed
+
 # Now, create the dataframe that will store the readings. It will be written to an Excel file after each measurement.
 df = pd.DataFrame(columns = ['Date','Time','Potential','Uncertainty','Plateau_Length'])
+
 #run function
 DBRE_analyzer(filename, cycle_time, reset_time, max_time, threshold, num_measurements)
