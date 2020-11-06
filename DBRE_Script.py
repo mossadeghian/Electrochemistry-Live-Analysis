@@ -9,16 +9,15 @@ charging_time = 3 #chronopotentiometry time in seconds
 cycle_time = 1 #amount of seconds between DBRE measurements. If you'd like to go through a bunch at once, set equal to 1.
 reset_time = 300 #an appropriate fraction of cycle time to delay by when the script loses synchronization
 threshold = 0.01 #decide on value for slope of plateau... or we can find this numerically each time
-max_time = 100 #ignore time values past this
 filename = 'A_DBRE_#1' #will be updated throughout script
 num_measurements = 2 #expected number of files to go through
-def DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, max_time, num_measurements):
+def DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, num_measurements):
 	global df
 	try: #to read the text file
 		raw_data = pd.read_csv(filename + '.DTA',sep = '\t',header = None, usecols = [2,3], skiprows = 64, names = ['Time','Voltage'])
 	except pd.io.common.EmptyDataError: #if file is empty, wait reset_time
 		time.sleep(reset_time)
-		DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, max_time, num_measurements)
+		DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, num_measurements)
 	#extract date and time
 	f = open(filename + '.DTA', 'r')
 	lines = f.readlines()
@@ -29,7 +28,6 @@ def DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, ma
 	raw_data.to_excel(filename + '.xlsx')
 	#extract voltage and plateau length using threshold
 	raw_data = raw_data[raw_data.Time > charging_time]
-	raw_data = raw_data[raw_data.Time < max_time]
 	raw_data['Derivative'] = np.gradient(raw_data.Voltage,raw_data.Time)
 	count = 0
 	reached_plateau = False
@@ -44,6 +42,11 @@ def DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, ma
 		count = count + 1
 	raw_data.drop(raw_data.tail(len(raw_data.index)-count).index, inplace = True)
 	raw_data.drop(raw_data.head(plateau_start).index, inplace = True)
+	#increase threshold if script didn't find plateau
+	if raw_data.empty:
+		threshold = threshold*2
+		return DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, num_measurements)
+	#^ not sure if this will work
 	ones = 1+0*raw_data.Time
 	plateau = np.trapz(ones,x = raw_data.Time) #time of plateau length
 	voltage = np.trapz(raw_data.Voltage, x = raw_data.Time)/plateau #numerical integral to average voltage
@@ -57,8 +60,8 @@ def DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, ma
 	time.sleep(cycle_time)
 	new_filename = filename[:-1]
 	new_filename = new_filename + str(new_number)
-	DBRE_analyzer(new_filename, charging_time, cycle_time, reset_time, threshold, max_time, num_measurements) #recursive loop until all files parsed
+	DBRE_analyzer(new_filename, charging_time, cycle_time, reset_time, threshold, num_measurements) #recursive loop until all files parsed
 # Now, create the dataframe that will store the readings. It will be written to an Excel file after each measurement.
 df = pd.DataFrame(columns = ['Date','Time','Potential','Uncertainty','Plateau_Length'])
 #run function
-DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, max_time, num_measurements)
+DBRE_analyzer(filename, charging_time, cycle_time, reset_time, threshold, num_measurements)
