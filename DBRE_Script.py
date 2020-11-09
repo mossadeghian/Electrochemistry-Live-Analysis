@@ -20,9 +20,14 @@ def DBRE_analyzer(filename, threshold):
 	global df, cycle_time, reset_time, max_time, num_measurements, min_plateau_length, printplots
 	try: #to read the text file
 		raw_data = pd.read_csv(filename + '.DTA',sep = '\t',header = None, usecols = [2,3], skiprows = 64, names = ['Time','Voltage'])
-	except pd.io.common.EmptyDataError: #if file is empty, wait reset_time
+	except pd.errors.EmptyDataError: #if file is empty, wait reset_time
 		time.sleep(reset_time)
-		DBRE_analyzer(filename, threshold)
+		return DBRE_analyzer(filename, threshold)
+
+	#check again if file is empty, and if so, wait reset_time
+	if raw_data.empty:
+		time.sleep(reset_time)
+		return DBRE_analyzer(filename,threshold)
 
 	#extract date,time, charging time
 	experimentnumber = filename[8:]
@@ -114,7 +119,7 @@ def DBRE_analyzer(filename, threshold):
 	time.sleep(cycle_time)
 	new_filename = filename[:8]
 	new_filename = new_filename + str(new_number)
-	DBRE_analyzer(new_filename, threshold) #recursive loop until all files parsed
+	return DBRE_analyzer(new_filename, threshold) #recursive loop until all files parsed
 
 # Now, create the dataframe that will store the readings. It will be written to an Excel file after each measurement.
 df = pd.DataFrame(columns = ['Date','Time','Potential','Uncertainty','Plateau_Length'])
