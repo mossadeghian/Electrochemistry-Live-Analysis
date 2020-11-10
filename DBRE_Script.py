@@ -7,6 +7,7 @@ from datetime import datetime
 
 # The following inputs will need to be set based on the DBRE configuration #
 #charging_time = 3 #chronopotentiometry time in seconds
+start_time = datetime(2020, 10, 27, 15, 0, 0) #start of experiment
 cycle_time = 1 #amount of seconds between DBRE measurements. If you'd like to go through a bunch at once, set equal to 1.
 reset_time = 600 #an appropriate fraction of cycle time to delay by when the script loses synchronization
 max_time = 150 #do not plot or evaluate past this number of seconds to reduce amount of data
@@ -29,12 +30,17 @@ def DBRE_analyzer(filename, threshold):
 		time.sleep(reset_time)
 		return DBRE_analyzer(filename,threshold)
 
-	#extract date,time, charging time
+	#extract date, time, charging time, then convert to hours elapsed
 	experimentnumber = filename[8:]
 	f = open(filename + '.DTA', 'r')
 	lines = f.readlines()
 	datestamp = lines[3].split('\t')[2]
 	timestamp = lines[4].split('\t')[2]
+	datetimestamp = datetime.strptime(datestamp + ' ' + timestamp, '%m/%d/%Y %H:%M:%S')
+	print(datetimestamp)
+	print(start_time)
+	dt = datetimestamp - start_time
+	hours = dt.total_seconds()/3600
 	charging_time = float(lines[11].split('\t')[2])
 	f.close()
 
@@ -104,11 +110,11 @@ def DBRE_analyzer(filename, threshold):
 	#calculate plateau length, average potential, anduncertainty
 	ones = 1+0*raw_data.Time
 	plateau = np.trapz(ones,x = raw_data.Time) #time of plateau length
-	voltage = np.trapz(raw_data.Voltage, x = raw_data.Time)/plateau #numerical integral to average voltage
+	voltage = -np.trapz(raw_data.Voltage, x = raw_data.Time)/plateau #numerical integral to average voltage
 	uncertainty = (max(raw_data.Voltage) - min(raw_data.Voltage))/2 #estimate uncertainty as voltage window divided by 2
 
 	#add info to overall Excel file
-	df = df.append({'Date': datestamp,'Time': timestamp,'Potential': voltage,'Uncertainty': uncertainty, 'Plateau_Length': plateau},ignore_index = True) #add values to overall dataframe
+	df = df.append({'Hours': hours, 'Date': datestamp,'Time': timestamp,'Potential': voltage,'Uncertainty': uncertainty, 'Plateau_Length': plateau},ignore_index = True) #add values to overall dataframe
 	df.to_excel('DBRE.xlsx')
 
 	#prepare to either read next file or stop
@@ -122,7 +128,7 @@ def DBRE_analyzer(filename, threshold):
 	return DBRE_analyzer(new_filename, threshold) #recursive loop until all files parsed
 
 # Now, create the dataframe that will store the readings. It will be written to an Excel file after each measurement.
-df = pd.DataFrame(columns = ['Date','Time','Potential','Uncertainty','Plateau_Length'])
+df = pd.DataFrame(columns = ['Hours','Date','Time','Potential','Uncertainty','Plateau_Length'])
 
 #run function
 DBRE_analyzer(filename, threshold)
