@@ -37,8 +37,6 @@ def DBRE_analyzer(filename, threshold):
 	datestamp = lines[3].split('\t')[2]
 	timestamp = lines[4].split('\t')[2]
 	datetimestamp = datetime.strptime(datestamp + ' ' + timestamp, '%m/%d/%Y %H:%M:%S')
-	print(datetimestamp)
-	print(start_time)
 	dt = datetimestamp - start_time
 	hours = dt.total_seconds()/3600
 	charging_time = float(lines[11].split('\t')[2])
@@ -115,12 +113,21 @@ def DBRE_analyzer(filename, threshold):
 
 	#add info to overall Excel file
 	df = df.append({'Hours': hours, 'Date': datestamp,'Time': timestamp,'Potential': voltage,'Uncertainty': uncertainty, 'Plateau_Length': plateau},ignore_index = True) #add values to overall dataframe
-	df.to_excel('DBRE.xlsx')
+	df.to_excel('DBRE_summary.xlsx')
+
+	#plot salt potential over time after each trial is done
+	plt.figure()
+	plt.suptitle('Salt Potential Over Time')
+	plt.scatter(df.Hours, df.Potential, marker = 'o', color = 'blue')
+	plt.xlabel('Time (hr)')
+	plt.ylabel('Salt Potential (V vs Be|Be2+)')
+	plt.ticklabel_format(axis = 'x', style = 'plain', useOffset = False)
+	plt.savefig('DBRE_Summary.png', dpi=300)
+	plt.close()
 
 	#prepare to either read next file or stop
 	new_number = int(filename[8:]) + 1
-	if new_number > num_measurements:
-		print(df)
+	if new_number > num_measurements:		
 		return 'Done'
 	time.sleep(cycle_time)
 	new_filename = filename[:8]
