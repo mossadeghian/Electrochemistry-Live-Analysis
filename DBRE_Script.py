@@ -21,7 +21,7 @@ def DBRE_analyzer(filename, threshold):
 	global df, cycle_time, reset_time, max_time, num_measurements, min_plateau_length, printplots
 	try: #to read the text file
 		raw_data = pd.read_csv(filename + '.DTA',sep = '\t',header = None, usecols = [2,3], skiprows = 64, names = ['Time','Voltage'])
-	except pd.errors.EmptyDataError: #if file is empty, wait reset_time
+	except: #if file is empty, wait reset_time
 		time.sleep(reset_time)
 		return DBRE_analyzer(filename, threshold)
 
