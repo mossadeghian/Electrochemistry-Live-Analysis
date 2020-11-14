@@ -118,7 +118,7 @@ def DBRE_analyzer(filename, threshold):
 	#plot salt potential over time after each trial is done
 	plt.figure()
 	plt.suptitle('Salt Potential Over Time')
-	plt.scatter(df.Hours, df.Potential, marker = 'o', color = 'blue')
+	plt.errorbar(df.Hours, df.Potential, yerr = df.Uncertainty, color = 'blue', ecolor = 'black', fmt = 'o',capsize = 5)
 	plt.xlabel('Time (hr)')
 	plt.ylabel('Salt Potential (V vs Be|Be2+)')
 	plt.ticklabel_format(axis = 'x', style = 'plain', useOffset = False)
