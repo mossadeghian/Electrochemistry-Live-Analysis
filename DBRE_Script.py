@@ -9,8 +9,8 @@ from datetime import datetime
 #charging_time = 3 #chronopotentiometry time in seconds
 start_time = datetime(2020, 10, 27, 15, 0, 0) #start of experiment
 cycle_time = 1 #amount of seconds between DBRE measurements. If you'd like to go through a bunch at once, set equal to 1.
-reset_time = 600 #an appropriate fraction of cycle time to delay by when the script loses synchronization
-max_time = 150 #do not plot or evaluate past this number of seconds to reduce amount of data
+reset_time = 10000 #an appropriate fraction of cycle time to delay by when the script loses synchronization
+max_time = 600 #do not plot or evaluate past this number of seconds to reduce amount of data
 threshold = 0.005 #default max value for slope of plateau
 filename = 'A_DBRE_#1' #will be updated throughout script
 num_measurements = 2 #expected number of files to go through
@@ -56,7 +56,7 @@ def DBRE_analyzer(filename, threshold):
 		#VOLTAGE PLOT
 		top = plt.subplot(2,1,1)
 		plt.plot(raw_data.Time, raw_data.Voltage)
-		plt.axis([-10, max_time, -1.6, -0.8])
+		plt.axis([-10, max_time, min(raw_data.Voltage), raw_data['Voltage'].iloc[-1]])
 		plt.ylabel('Voltage (V)')
 		#DERIVATIVE PLOT
 		bottom = plt.subplot(2,1,2)
