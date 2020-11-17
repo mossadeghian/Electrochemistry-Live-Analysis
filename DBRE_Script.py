@@ -113,7 +113,7 @@ def DBRE_analyzer(filename, threshold):
 
 	#add info to overall Excel file
 	df = df.append({'Hours': hours, 'Date': datestamp,'Time': timestamp,'Potential': voltage,'Uncertainty': uncertainty, 'Plateau_Length': plateau},ignore_index = True) #add values to overall dataframe
-	df.to_excel('DBRE_summary.xlsx')
+	df.to_excel('DBRE_Summary.xlsx')
 
 	#plot salt potential over time after each trial is done
 	plt.figure()
