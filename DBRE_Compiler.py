@@ -7,8 +7,9 @@ df = pd.DataFrame(columns = ['Hours','Date','Time','Potential','Uncertainty','Pl
 folders = [d.name() for d in os.scandir('.') if d.is_dir()]
 for folder in folders:
 	os.chdir(folder)
-	data = pd.read_excel('DBRE_Summary.xlsx')
-	df = df.append(data)
+	if os.path.isfile('DBRE_Summary.xlsx'):
+		data = pd.read_excel('DBRE_Summary.xlsx')
+		df = df.append(data)
 	os.chdir('..')
 plt.figure()
 plt.suptitle('Salt Potential Over Time')
