@@ -13,7 +13,7 @@ for folder in folders:
 	os.chdir('..')
 plt.figure()
 plt.suptitle('Salt Potential Over Time')
-plt.errorbar(df.Hours, df.Potential, yerr = df.Uncertainty, color = 'blue', ecolor = 'black', fmt = 'o',capsize = 5)
+plt.errorbar(df.Hours, df.Potential, yerr = df.Uncertainty, color = 'blue', ecolor = 'black', fmt = 'o',capsize = 1, markersize = 1, elinewidth = 0.2, capthick = 0.2)
 plt.xlabel('Time (hr)')
 plt.ylabel('Salt Potential (V vs Be|Be2+)')
 plt.ticklabel_format(axis = 'x', style = 'plain', useOffset = False)
