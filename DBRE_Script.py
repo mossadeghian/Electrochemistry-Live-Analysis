@@ -56,7 +56,7 @@ def DBRE_analyzer(filename, threshold):
 		#VOLTAGE PLOT
 		top = plt.subplot(2,1,1)
 		plt.plot(raw_data.Time, raw_data.Voltage)
-		plt.axis([-10, max_time, min(raw_data.Voltage), raw_data['Voltage'].iloc[-1]])
+		plt.axis([-10, max_time, min(raw_data.Voltage), raw_data['Voltage'].iloc[-1]]+0.05)
 		plt.ylabel('Voltage (V)')
 		#DERIVATIVE PLOT
 		bottom = plt.subplot(2,1,2)
