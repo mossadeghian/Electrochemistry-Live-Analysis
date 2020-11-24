@@ -1,0 +1,134 @@
+import pandas as pd
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import time
+from datetime import datetime
+import glob
+
+# The following inputs will need to be set based on the DBRE configuration #
+#charging_time = 3 #chronopotentiometry time in seconds
+start_time = datetime(2020, 10, 27, 15, 0, 0) #start of experiment
+filename = 'A_DBRE_#1' #default filename whose number will be updated throughout script
+cycle_time = 0.01 #amount of seconds between DBRE measurements. If you'd like to go through a bunch at once, set equal to 1.
+reset_time = 10000 #an appropriate fraction of cycle time to delay by when the script loses synchronization
+max_time = 600 #do not plot or evaluate past this number of seconds to reduce amount of data
+threshold = 0.008 #default max value for slope of plateau
+min_plateau_length = 15 #minimum number of points needed to have a plateau
+printplots = True #whether or not you'd like to print each plot
+
+def DBRE_analyzer(filename, threshold):
+	global df, cycle_time, reset_time, max_time, num_measurements, min_plateau_length, printplots
+	try: #to read the text file
+		raw_data = pd.read_csv(filename + '.DTA',sep = '\t',header = None, usecols = [2,3], skiprows = 64, names = ['Time','Voltage'])
+	except: #if file is empty, wait reset_time
+		time.sleep(reset_time)
+		return DBRE_analyzer(filename, threshold)
+
+	#check again if file is empty, and if so, wait reset_time
+	if raw_data.empty:
+		time.sleep(reset_time)
+		return DBRE_analyzer(filename,threshold)
+
+	#extract date, time, charging time, then convert to hours elapsed
+	experimentnumber = filename[8:]
+	f = open(filename + '.DTA', 'r')
+	lines = f.readlines()
+	datestamp = lines[3].split('\t')[2]
+	timestamp = lines[4].split('\t')[2]
+	datetimestamp = datetime.strptime(datestamp + ' ' + timestamp, '%m/%d/%Y %H:%M:%S')
+	dt = datetimestamp - start_time
+	hours = dt.total_seconds()/3600
+	charging_time = float(lines[11].split('\t')[2])
+	f.close()
+
+	#create derivative column
+	raw_data['Derivative'] = np.gradient(raw_data.Voltage,raw_data.Time)
+	raw_data['Concavity'] = np.gradient(raw_data.Derivative,raw_data.Time)
+
+	#filter out times past the maximum time
+	raw_data = raw_data[raw_data.Time < max_time]
+
+	#save raw data in Excel file, and produce plots
+	if printplots:
+		plt.figure()
+		plt.suptitle('Discharge and first derivative for run #'+ experimentnumber)
+		#VOLTAGE PLOT
+		top = plt.subplot(2,1,1)
+		plt.plot(raw_data.Time, raw_data.Voltage)
+		plt.axis([-10, max_time, min(raw_data.Voltage), raw_data['Voltage'].iloc[-1]+0.05])
+		plt.ylabel('Voltage (V)')
+		#DERIVATIVE PLOT
+		bottom = plt.subplot(2,1,2)
+		plt.plot (raw_data.Time, raw_data.Derivative)
+		plt.axis([-10, max_time, -0.0015, 0.05])
+		plt.xlabel('Time (s)')
+		plt.ylabel('First Derivative (V/s)')
+		plt.hlines(threshold,-10,600,linestyles='dashed',label='Threshold')
+	raw_data.to_excel(filename + '.xlsx')
+
+	#extract voltage and plateau length using threshold on derivative
+	raw_data = raw_data[raw_data.Time > charging_time]
+	raw_data = raw_data.reset_index()
+	reached_plateau = False
+	plateau_start = 0
+	count = -1
+	for i in raw_data.Derivative: #go through voltage readings until derivative exceeds threshold
+		count = count + 1
+		if i < threshold:
+			reached_plateau = True #make sure that initial steepness is ignored
+			if plateau_start == 0:
+				plateau_start = count
+		if i > threshold and reached_plateau is True and abs(count-plateau_start) > min_plateau_length: #end loop
+			break
+	plateau_end = max([count,0])
+
+	#add plateau points to plots
+	if printplots:
+		top.plot(raw_data.Time[plateau_start],raw_data.Voltage[plateau_start],'or', markersize=6)
+		top.plot(raw_data.Time[plateau_end],raw_data.Voltage[plateau_end],'or', markersize=6)
+		bottom.plot(raw_data.Time[plateau_start],raw_data.Derivative[plateau_start],'or', markersize=6)
+		bottom.plot(raw_data.Time[plateau_end],raw_data.Derivative[plateau_end],'or', markersize=6)
+		#save the plot
+		plt.savefig('plot#'+experimentnumber+'.png', dpi=300) # Save the figure
+		plt.close()
+
+	#filter raw data to only contain plateau
+	raw_data.drop(raw_data.tail(len(raw_data.index)-plateau_end).index, inplace = True)
+	raw_data.drop(raw_data.head(plateau_start).index, inplace = True)
+
+	#calculate plateau length, average potential, anduncertainty
+	ones = 1+0*raw_data.Time
+	plateau = np.trapz(ones,x = raw_data.Time) #time of plateau length
+	voltage = -np.trapz(raw_data.Voltage, x = raw_data.Time)/plateau #numerical integral to average voltage
+	uncertainty = (max(raw_data.Voltage) - min(raw_data.Voltage))/2 #estimate uncertainty as voltage window divided by 2
+
+	#add info to overall Excel file
+	df = df.append({'Hours': hours, 'Date': datestamp,'Time': timestamp,'Potential': voltage,'Uncertainty': uncertainty, 'Plateau_Length': plateau},ignore_index = True) #add values to overall dataframe
+	df.to_excel('DBRE_Summary.xlsx')
+
+	#plot salt potential over time after each trial is done
+	plt.figure()
+	plt.suptitle('Salt Potential Over Time')
+	plt.errorbar(df.Hours, df.Potential, yerr = df.Uncertainty, color = 'blue', ecolor = 'black', fmt = 'o',capsize = 5)
+	plt.xlabel('Time (hr)')
+	plt.ylabel('Salt Potential (V vs Be|Be2+)')
+	plt.ticklabel_format(axis = 'x', style = 'plain', useOffset = False)
+	plt.savefig('DBRE_Summary.png', dpi=300)
+	plt.close()
+
+	#prepare to either read next file or stop
+	new_number = int(filename[8:]) + 1
+	if new_number > num_measurements:		
+		return 'Done'
+	time.sleep(cycle_time)
+	new_filename = filename[:8]
+	new_filename = new_filename + str(new_number)
+	return DBRE_analyzer(new_filename, threshold) #recursive loop until all files parsed
+
+# Now, create the dataframe that will store the readings. It will be written to an Excel file after each measurement.
+df = pd.DataFrame(columns = ['Hours','Date','Time','Potential','Uncertainty','Plateau_Length'])
+
+#run function
+num_measurements= len(glob.glob1('.',"A*.DTA"))
+DBRE_analyzer(filename, threshold)

@@ -4,7 +4,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 df = pd.DataFrame(columns = ['Hours','Date','Time','Potential','Uncertainty','Plateau_Length'])
-folders = [d.name() for d in os.scandir('.') if d.is_dir()]
+folders = [d.name for d in os.scandir('.') if d.is_dir()]
 for folder in folders:
 	os.chdir(folder)
 	if os.path.isfile('DBRE_Summary.xlsx'):
